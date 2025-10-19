@@ -31,24 +31,24 @@ func New(fs afero.Fs, root string) *FileCache {
 	}
 }
 
-func (f *FileCache) Store(ctx context.Context, key string, value []byte) error {
+func (f *FileCache) Store(_ context.Context, key string, value []byte) error {
 	mu := f.getScopedLocks(key)
 	mu.Lock()
 	defer mu.Unlock()
 
 	fileName := f.getFileName(key)
-	if err := f.fs.MkdirAll(filepath.Dir(fileName), 0700); err != nil { //nolint:gomnd
+	if err := f.fs.MkdirAll(filepath.Dir(fileName), 0700); err != nil {
 		return err
 	}
 
-	if err := afero.WriteFile(f.fs, fileName, value, 0700); err != nil { //nolint:gomnd
+	if err := afero.WriteFile(f.fs, fileName, value, 0700); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (f *FileCache) Load(ctx context.Context, key string) (value []byte, exist bool, err error) {
+func (f *FileCache) Load(_ context.Context, key string) (value []byte, exist bool, err error) {
 	r, ok, err := f.open(key)
 	if err != nil || !ok {
 		return nil, ok, err
@@ -62,7 +62,7 @@ func (f *FileCache) Load(ctx context.Context, key string) (value []byte, exist b
 	return value, true, nil
 }
 
-func (f *FileCache) Delete(ctx context.Context, key string) error {
+func (f *FileCache) Delete(_ context.Context, key string) error {
 	mu := f.getScopedLocks(key)
 	mu.Lock()
 	defer mu.Unlock()

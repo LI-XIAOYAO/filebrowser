@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"sort"
@@ -11,7 +12,7 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
-	"github.com/filebrowser/filebrowser/v2/errors"
+	fbErrors "github.com/filebrowser/filebrowser/v2/errors"
 	"github.com/filebrowser/filebrowser/v2/users"
 )
 
@@ -35,7 +36,7 @@ func getUserID(r *http.Request) (uint, error) {
 
 func getUser(_ http.ResponseWriter, r *http.Request) (*modifyUserRequest, error) {
 	if r.Body == nil {
-		return nil, errors.ErrEmptyRequest
+		return nil, fbErrors.ErrEmptyRequest
 	}
 
 	req := &modifyUserRequest{}
@@ -45,7 +46,7 @@ func getUser(_ http.ResponseWriter, r *http.Request) (*modifyUserRequest, error)
 	}
 
 	if req.What != "user" {
-		return nil, errors.ErrInvalidDataType
+		return nil, fbErrors.ErrInvalidDataType
 	}
 
 	return req, nil
@@ -86,7 +87,7 @@ var usersGetHandler = withAdmin(func(w http.ResponseWriter, r *http.Request, d *
 
 var userGetHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
 	u, err := d.store.Users.Get(d.server.Root, d.raw.(uint))
-	if err == errors.ErrNotExist {
+	if errors.Is(err, fbErrors.ErrNotExist) {
 		return http.StatusNotFound, err
 	}
 
@@ -101,7 +102,7 @@ var userGetHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 	return renderJSON(w, r, u)
 })
 
-var userDeleteHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+var userDeleteHandler = withSelfOrAdmin(func(_ http.ResponseWriter, _ *http.Request, d *data) (int, error) {
 	err := d.store.Users.Delete(d.raw.(uint))
 	if err != nil {
 		return errToStatus(err), err
@@ -121,12 +122,12 @@ var userPostHandler = withAdmin(func(w http.ResponseWriter, r *http.Request, d *
 	}
 
 	if req.Data.Password == "" {
-		return http.StatusBadRequest, errors.ErrEmptyPassword
+		return http.StatusBadRequest, fbErrors.ErrEmptyPassword
 	}
 
-	req.Data.Password, err = users.HashPwd(req.Data.Password)
+	req.Data.Password, err = users.ValidateAndHashPwd(req.Data.Password, d.settings.MinimumPasswordLength)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return http.StatusBadRequest, err
 	}
 
 	userHome, err := d.settings.MakeUserDir(req.Data.Username, req.Data.Scope, d.server.Root)
@@ -162,15 +163,17 @@ var userPutHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 		}
 
 		if req.Data.Password != "" {
-			req.Data.Password, err = users.HashPwd(req.Data.Password)
+			req.Data.Password, err = users.ValidateAndHashPwd(req.Data.Password, d.settings.MinimumPasswordLength)
+			if err != nil {
+				return http.StatusBadRequest, err
+			}
 		} else {
 			var suser *users.User
 			suser, err = d.store.Users.Get(d.server.Root, d.raw.(uint))
+			if err != nil {
+				return http.StatusInternalServerError, err
+			}
 			req.Data.Password = suser.Password
-		}
-
-		if err != nil {
-			return http.StatusInternalServerError, err
 		}
 
 		req.Which = []string{}
@@ -185,9 +188,9 @@ var userPutHandler = withSelfOrAdmin(func(w http.ResponseWriter, r *http.Request
 				return http.StatusForbidden, nil
 			}
 
-			req.Data.Password, err = users.HashPwd(req.Data.Password)
+			req.Data.Password, err = users.ValidateAndHashPwd(req.Data.Password, d.settings.MinimumPasswordLength)
 			if err != nil {
-				return http.StatusInternalServerError, err
+				return http.StatusBadRequest, err
 			}
 		}
 

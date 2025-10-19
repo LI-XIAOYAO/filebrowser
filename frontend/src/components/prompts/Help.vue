@@ -11,7 +11,7 @@
         <li><strong>DEL</strong> - {{ $t("help.del") }}</li>
         <li><strong>ESC</strong> - {{ $t("help.esc") }}</li>
         <li><strong>CTRL + S</strong> - {{ $t("help.ctrl.s") }}</li>
-        <li><strong>CTRL + F</strong> - {{ $t("help.ctrl.f") }}</li>
+        <li><strong>CTRL + SHIFT + F</strong> - {{ $t("help.ctrl.f") }}</li>
         <li><strong>CTRL + Click</strong> - {{ $t("help.ctrl.click") }}</li>
         <li><strong>Click</strong> - {{ $t("help.click") }}</li>
         <li><strong>Double click</strong> - {{ $t("help.doubleClick") }}</li>
@@ -20,11 +20,13 @@
 
     <div class="card-action">
       <button
+        id="focus-prompt"
         type="submit"
-        @click="$store.commit('closeHovers')"
+        @click="closeHovers"
         class="button button--flat"
         :aria-label="$t('buttons.ok')"
         :title="$t('buttons.ok')"
+        tabindex="1"
       >
         {{ $t("buttons.ok") }}
       </button>
@@ -33,5 +35,13 @@
 </template>
 
 <script>
-export default { name: "help" };
+import { mapActions } from "pinia";
+import { useLayoutStore } from "@/stores/layout";
+
+export default {
+  name: "help",
+  methods: {
+    ...mapActions(useLayoutStore, ["closeHovers"]),
+  },
+};
 </script>

@@ -10,18 +10,21 @@
     </div>
     <div class="card-action">
       <button
-        @click="$store.commit('closeHovers')"
+        @click="closeHovers"
         class="button button--flat button--grey"
         :aria-label="$t('buttons.cancel')"
         :title="$t('buttons.cancel')"
+        tabindex="2"
       >
         {{ $t("buttons.cancel") }}
       </button>
       <button
+        id="focus-prompt"
         @click="submit"
         class="button button--flat button--red"
         :aria-label="$t('buttons.delete')"
         :title="$t('buttons.delete')"
+        tabindex="1"
       >
         {{ $t("buttons.delete") }}
       </button>
@@ -30,18 +33,27 @@
 </template>
 
 <script>
-import { mapGetters, mapMutations, mapState } from "vuex";
+import { mapActions, mapState, mapWritableState } from "pinia";
 import { files as api } from "@/api";
 import buttons from "@/utils/buttons";
+import { useFileStore } from "@/stores/file";
+import { useLayoutStore } from "@/stores/layout";
 
 export default {
   name: "delete",
+  inject: ["$showError"],
   computed: {
-    ...mapGetters(["isListing", "selectedCount", "currentPrompt"]),
-    ...mapState(["req", "selected"]),
+    ...mapState(useFileStore, [
+      "isListing",
+      "selectedCount",
+      "req",
+      "selected",
+    ]),
+    ...mapState(useLayoutStore, ["currentPrompt"]),
+    ...mapWritableState(useFileStore, ["reload", "preselect"]),
   },
   methods: {
-    ...mapMutations(["closeHovers"]),
+    ...mapActions(useLayoutStore, ["closeHovers"]),
     submit: async function () {
       buttons.loading("delete");
 
@@ -61,18 +73,24 @@ export default {
           return;
         }
 
-        let promises = [];
-        for (let index of this.selected) {
+        const promises = [];
+        for (const index of this.selected) {
           promises.push(api.remove(this.req.items[index].url));
         }
 
         await Promise.all(promises);
         buttons.success("delete");
-        this.$store.commit("setReload", true);
+
+        const nearbyItem =
+          this.req.items[Math.max(0, Math.min(this.selected) - 1)];
+
+        this.preselect = nearbyItem?.path;
+
+        this.reload = true;
       } catch (e) {
         buttons.done("delete");
         this.$showError(e);
-        if (this.isListing) this.$store.commit("setReload", true);
+        if (this.isListing) this.reload = true;
       }
     },
   },

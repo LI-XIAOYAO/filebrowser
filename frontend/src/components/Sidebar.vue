@@ -1,6 +1,11 @@
 <template>
+  <div v-show="active" @click="closeHovers" class="overlay"></div>
   <nav :class="{ active }">
-    <template v-if="isLogged">
+    <template v-if="isLoggedIn">
+      <button @click="toAccountSettings" class="action">
+        <i class="material-icons">person</i>
+        <span>{{ user.username }}</span>
+      </button>
       <button
         class="action"
         @click="toRoot"
@@ -13,7 +18,7 @@
 
       <div v-if="user.perm.create">
         <button
-          @click="$store.commit('showHover', 'newDir')"
+          @click="showHover('newDir')"
           class="action"
           :aria-label="$t('sidebar.newFolder')"
           :title="$t('sidebar.newFolder')"
@@ -23,7 +28,7 @@
         </button>
 
         <button
-          @click="$store.commit('showHover', 'newFile')"
+          @click="showHover('newFile')"
           class="action"
           :aria-label="$t('sidebar.newFile')"
           :title="$t('sidebar.newFile')"
@@ -33,29 +38,28 @@
         </button>
       </div>
 
-      <div>
+      <div v-if="user.perm.admin">
         <button
           class="action"
-          @click="toSettings"
+          @click="toGlobalSettings"
           :aria-label="$t('sidebar.settings')"
           :title="$t('sidebar.settings')"
         >
           <i class="material-icons">settings_applications</i>
           <span>{{ $t("sidebar.settings") }}</span>
         </button>
-
-        <button
-          v-if="canLogout"
-          @click="logout"
-          class="action"
-          id="logout"
-          :aria-label="$t('sidebar.logout')"
-          :title="$t('sidebar.logout')"
-        >
-          <i class="material-icons">exit_to_app</i>
-          <span>{{ $t("sidebar.logout") }}</span>
-        </button>
       </div>
+      <button
+        v-if="canLogout"
+        @click="logout"
+        class="action"
+        id="logout"
+        :aria-label="$t('sidebar.logout')"
+        :title="$t('sidebar.logout')"
+      >
+        <i class="material-icons">exit_to_app</i>
+        <span>{{ $t("sidebar.logout") }}</span>
+      </button>
     </template>
     <template v-else>
       <router-link
@@ -82,9 +86,7 @@
 
     <div
       class="credits"
-      v-if="
-        $router.currentRoute.path.includes('/files/') && !disableUsedPercentage
-      "
+      v-if="isFiles && !disableUsedPercentage"
       style="width: 90%; margin: 2em 2.5em 3em 2.5em"
     >
       <progress-bar :val="usage.usedPercentage" size="small"></progress-bar>
@@ -102,7 +104,7 @@
           href="https://github.com/filebrowser/filebrowser"
           >File Browser</a
         >
-        <span> {{ version }}</span>
+        <span> {{ " " }} {{ version }}</span>
       </span>
       <span>
         <a @click="help">{{ $t("sidebar.help") }}</a>
@@ -112,7 +114,12 @@
 </template>
 
 <script>
-import { mapState, mapGetters } from "vuex";
+import { reactive } from "vue";
+import { mapActions, mapState } from "pinia";
+import { useAuthStore } from "@/stores/auth";
+import { useFileStore } from "@/stores/file";
+import { useLayoutStore } from "@/stores/layout";
+
 import * as auth from "@/utils/auth";
 import {
   version,
@@ -123,19 +130,27 @@ import {
   loginPage,
 } from "@/utils/constants";
 import { files as api } from "@/api";
-import ProgressBar from "vue-simple-progress";
+import ProgressBar from "@/components/ProgressBar.vue";
 import prettyBytes from "pretty-bytes";
+
+const USAGE_DEFAULT = { used: "0 B", total: "0 B", usedPercentage: 0 };
 
 export default {
   name: "sidebar",
+  setup() {
+    const usage = reactive(USAGE_DEFAULT);
+    return { usage, usageAbortController: new AbortController() };
+  },
   components: {
     ProgressBar,
   },
+  inject: ["$showError"],
   computed: {
-    ...mapState(["user"]),
-    ...mapGetters(["isLogged", "currentPrompt"]),
+    ...mapState(useAuthStore, ["user", "isLoggedIn"]),
+    ...mapState(useFileStore, ["isFiles", "reload"]),
+    ...mapState(useLayoutStore, ["currentPromptName"]),
     active() {
-      return this.currentPrompt?.prompt === "sidebar";
+      return this.currentPromptName === "sidebar";
     },
     signup: () => signup,
     version: () => version,
@@ -143,47 +158,61 @@ export default {
     disableUsedPercentage: () => disableUsedPercentage,
     canLogout: () => !noAuth && loginPage,
   },
-  asyncComputed: {
-    usage: {
-      async get() {
-        let path = this.$route.path.endsWith("/")
-          ? this.$route.path
-          : this.$route.path + "/";
-        let usageStats = { used: 0, total: 0, usedPercentage: 0 };
-        if (this.disableUsedPercentage) {
-          return usageStats;
-        }
-        try {
-          let usage = await api.usage(path);
-          usageStats = {
-            used: prettyBytes(usage.used, { binary: true }),
-            total: prettyBytes(usage.total, { binary: true }),
-            usedPercentage: Math.round((usage.used / usage.total) * 100),
-          };
-        } catch (error) {
-          this.$showError(error);
-        }
-        return usageStats;
-      },
-      default: { used: "0 B", total: "0 B", usedPercentage: 0 },
-      shouldUpdate() {
-        return this.$router.currentRoute.path.includes("/files/");
-      },
-    },
-  },
   methods: {
-    toRoot() {
-      this.$router.push({ path: "/files/" }, () => {});
-      this.$store.commit("closeHovers");
+    ...mapActions(useLayoutStore, ["closeHovers", "showHover"]),
+    abortOngoingFetchUsage() {
+      this.usageAbortController.abort();
     },
-    toSettings() {
-      this.$router.push({ path: "/settings" }, () => {});
-      this.$store.commit("closeHovers");
+    async fetchUsage() {
+      const path = this.$route.path.endsWith("/")
+        ? this.$route.path
+        : this.$route.path + "/";
+      let usageStats = USAGE_DEFAULT;
+      if (this.disableUsedPercentage) {
+        return Object.assign(this.usage, usageStats);
+      }
+      try {
+        this.abortOngoingFetchUsage();
+        this.usageAbortController = new AbortController();
+        const usage = await api.usage(path, this.usageAbortController.signal);
+        usageStats = {
+          used: prettyBytes(usage.used, { binary: true }),
+          total: prettyBytes(usage.total, { binary: true }),
+          usedPercentage: Math.round((usage.used / usage.total) * 100),
+        };
+      } finally {
+        return Object.assign(this.usage, usageStats);
+      }
+    },
+    toRoot() {
+      this.$router.push({ path: "/files" });
+      this.closeHovers();
+    },
+    toAccountSettings() {
+      this.$router.push({ path: "/settings/profile" });
+      this.closeHovers();
+    },
+    toGlobalSettings() {
+      this.$router.push({ path: "/settings/global" });
+      this.closeHovers();
     },
     help() {
-      this.$store.commit("showHover", "help");
+      this.showHover("help");
     },
     logout: auth.logout,
+  },
+  watch: {
+    $route: {
+      handler(to) {
+        if (to.path.includes("/files")) {
+          this.fetchUsage();
+        }
+      },
+      immediate: true,
+    },
+  },
+  unmounted() {
+    this.abortOngoingFetchUsage();
   },
 };
 </script>

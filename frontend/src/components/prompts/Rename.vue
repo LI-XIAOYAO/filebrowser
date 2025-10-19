@@ -10,8 +10,8 @@
         >:
       </p>
       <input
+        id="focus-prompt"
         class="input input--block"
-        v-focus
         type="text"
         @keyup.enter="submit"
         v-model.trim="name"
@@ -21,7 +21,7 @@
     <div class="card-action">
       <button
         class="button button--flat button--grey"
-        @click="$store.commit('closeHovers')"
+        @click="closeHovers"
         :aria-label="$t('buttons.cancel')"
         :title="$t('buttons.cancel')"
       >
@@ -41,9 +41,12 @@
 </template>
 
 <script>
-import { mapState, mapGetters } from "vuex";
+import { mapActions, mapState, mapWritableState } from "pinia";
+import { useFileStore } from "@/stores/file";
+import { useLayoutStore } from "@/stores/layout";
 import url from "@/utils/url";
 import { files as api } from "@/api";
+import { removePrefix } from "@/api/utils";
 
 export default {
   name: "rename",
@@ -55,13 +58,20 @@ export default {
   created() {
     this.name = this.oldName();
   },
+  inject: ["$showError"],
   computed: {
-    ...mapState(["req", "selected", "selectedCount"]),
-    ...mapGetters(["isListing"]),
+    ...mapState(useFileStore, [
+      "req",
+      "selected",
+      "selectedCount",
+      "isListing",
+    ]),
+    ...mapWritableState(useFileStore, ["reload", "preselect"]),
   },
   methods: {
+    ...mapActions(useLayoutStore, ["closeHovers"]),
     cancel: function () {
-      this.$store.commit("closeHovers");
+      this.closeHovers();
     },
     oldName: function () {
       if (!this.isListing) {
@@ -95,12 +105,14 @@ export default {
           return;
         }
 
-        this.$store.commit("setReload", true);
+        this.preselect = removePrefix(newLink);
+
+        this.reload = true;
       } catch (e) {
         this.$showError(e);
       }
 
-      this.$store.commit("closeHovers");
+      this.closeHovers();
     },
   },
 };

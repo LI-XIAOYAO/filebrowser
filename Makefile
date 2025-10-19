@@ -3,6 +3,14 @@ include tools.mk
 
 LDFLAGS += -X "$(MODULE)/version.Version=$(VERSION)" -X "$(MODULE)/version.CommitSHA=$(VERSION_HASH)"
 
+SITE_DOCKER_FLAGS = \
+	-v $(CURDIR)/www:/docs \
+	-v $(CURDIR)/LICENSE:/docs/docs/LICENSE \
+	-v $(CURDIR)/SECURITY.md:/docs/docs/security.md \
+	-v $(CURDIR)/CHANGELOG.md:/docs/docs/changelog.md \
+	-v $(CURDIR)/CODE-OF-CONDUCT.md:/docs/docs/code-of-conduct.md \
+	-v $(CURDIR)/CONTRIBUTING.md:/docs/docs/contributing.md
+
 ## Build:
 
 .PHONY: build
@@ -10,7 +18,7 @@ build: | build-frontend build-backend ## Build binary
 
 .PHONY: build-frontend
 build-frontend: ## Build frontend
-	$Q cd frontend && npm ci && npm run build
+	$Q cd frontend && pnpm install --frozen-lockfile && pnpm run build
 
 .PHONY: build-backend
 build-backend: ## Build backend
@@ -21,17 +29,18 @@ test: | test-frontend test-backend ## Run all tests
 
 .PHONY: test-frontend
 test-frontend: ## Run frontend tests
+	$Q cd frontend && pnpm install --frozen-lockfile && pnpm run typecheck
 
 .PHONY: test-backend
 test-backend: ## Run backend tests
 	$Q $(go) test -v ./...
 
 .PHONY: lint
-lint: lint-frontend lint-backend lint-commits ## Run all linters
+lint: lint-frontend lint-backend ## Run all linters
 
 .PHONY: lint-frontend
 lint-frontend: ## Run frontend linters
-	$Q cd frontend && npm ci && npm run lint
+	$Q cd frontend && pnpm install --frozen-lockfile && pnpm run lint
 
 .PHONY: lint-backend
 lint-backend: | $(golangci-lint) ## Run backend linters
@@ -51,6 +60,17 @@ clean: clean-tools ## Clean
 .PHONY: bump-version
 bump-version: $(standard-version) ## Bump app version
 	$Q ./scripts/bump_version.sh
+
+.PHONY: site
+site: ## Build site
+	@rm -rf www/public
+	docker build -f www/Dockerfile --progress=plain -t filebrowser.site www
+	docker run --rm $(SITE_DOCKER_FLAGS) filebrowser.site build -d "public"
+
+.PHONY: site-serve
+site-serve: ## Serve site for development
+	docker build -f www/Dockerfile --progress=plain -t filebrowser.site www
+	docker run --rm -it -p 8000:8000 $(SITE_DOCKER_FLAGS) filebrowser.site
 
 ## Help:
 help: ## Show this help

@@ -1,152 +1,251 @@
 <template>
   <div id="editor-container">
     <header-bar>
-      <action icon="close" :label="$t('buttons.close')" @action="close()" />
-      <title>{{ req.name }}</title>
+      <action icon="close" :label="t('buttons.close')" @action="close()" />
+      <title>{{ fileStore.req?.name ?? "" }}</title>
 
       <action
-        v-if="user.perm.modify"
+        icon="add"
+        @action="increaseFontSize"
+        :label="t('buttons.increaseFontSize')"
+      />
+      <span class="editor-font-size">{{ fontSize }}px</span>
+      <action
+        icon="remove"
+        @action="decreaseFontSize"
+        :label="t('buttons.decreaseFontSize')"
+      />
+
+      <action
+        v-if="authStore.user?.perm.modify"
         id="save-button"
         icon="save"
-        :label="$t('buttons.save')"
+        :label="t('buttons.save')"
         @action="save()"
+      />
+
+      <action
+        icon="preview"
+        :label="t('buttons.preview')"
+        @action="preview()"
+        v-show="isMarkdownFile"
       />
     </header-bar>
 
-    <breadcrumbs base="/files" noLink />
+    <!-- preview container -->
+    <div class="loading delayed" v-if="layoutStore.loading">
+      <div class="spinner">
+        <div class="bounce1"></div>
+        <div class="bounce2"></div>
+        <div class="bounce3"></div>
+      </div>
+    </div>
+    <template v-else>
+      <Breadcrumbs base="/files" noLink />
 
-    <form id="editor"></form>
+      <div
+        v-show="isPreview && isMarkdownFile"
+        id="preview-container"
+        class="md_preview"
+        v-html="previewContent"
+      ></div>
+      <form v-show="!isPreview || !isMarkdownFile" id="editor"></form>
+    </template>
   </div>
 </template>
 
-<script>
-import { mapState } from "vuex";
+<script setup lang="ts">
 import { files as api } from "@/api";
-import { theme } from "@/utils/constants";
 import buttons from "@/utils/buttons";
 import url from "@/utils/url";
+import ace, { Ace, version as ace_version } from "ace-builds";
+import "ace-builds/src-noconflict/ext-language_tools";
+import modelist from "ace-builds/src-noconflict/ext-modelist";
+import DOMPurify from "dompurify";
 
-import { version as ace_version } from "ace-builds";
-import ace from "ace-builds/src-min-noconflict/ace.js";
-import modelist from "ace-builds/src-min-noconflict/ext-modelist.js";
-
-import HeaderBar from "@/components/header/HeaderBar.vue";
-import Action from "@/components/header/Action.vue";
 import Breadcrumbs from "@/components/Breadcrumbs.vue";
+import Action from "@/components/header/Action.vue";
+import HeaderBar from "@/components/header/HeaderBar.vue";
+import { useAuthStore } from "@/stores/auth";
+import { useFileStore } from "@/stores/file";
+import { useLayoutStore } from "@/stores/layout";
+import { getEditorTheme } from "@/utils/theme";
+import { marked } from "marked";
+import { inject, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
+import { useI18n } from "vue-i18n";
+import { onBeforeRouteUpdate, useRoute, useRouter } from "vue-router";
 
-export default {
-  name: "editor",
-  components: {
-    HeaderBar,
-    Action,
-    Breadcrumbs,
-  },
-  data: function () {
-    return {};
-  },
-  computed: {
-    ...mapState(["req", "user"]),
-    breadcrumbs() {
-      let parts = this.$route.path.split("/");
+const $showError = inject<IToastError>("$showError")!;
 
-      if (parts[0] === "") {
-        parts.shift();
-      }
+const fileStore = useFileStore();
+const authStore = useAuthStore();
+const layoutStore = useLayoutStore();
 
-      if (parts[parts.length - 1] === "") {
-        parts.pop();
-      }
+const { t } = useI18n();
 
-      let breadcrumbs = [];
+const route = useRoute();
+const router = useRouter();
 
-      for (let i = 0; i < parts.length; i++) {
-        breadcrumbs.push({ name: decodeURIComponent(parts[i]) });
-      }
+const editor = ref<Ace.Editor | null>(null);
+const fontSize = ref(parseInt(localStorage.getItem("editorFontSize") || "14"));
 
-      breadcrumbs.shift();
+const isPreview = ref(false);
+const previewContent = ref("");
+const isMarkdownFile =
+  fileStore.req?.name.endsWith(".md") ||
+  fileStore.req?.name.endsWith(".markdown");
 
-      if (breadcrumbs.length > 3) {
-        while (breadcrumbs.length !== 4) {
-          breadcrumbs.shift();
-        }
+onMounted(() => {
+  window.addEventListener("keydown", keyEvent);
+  window.addEventListener("beforeunload", handlePageChange);
 
-        breadcrumbs[0].name = "...";
-      }
+  const fileContent = fileStore.req?.content || "";
 
-      return breadcrumbs;
-    },
-  },
-  created() {
-    window.addEventListener("keydown", this.keyEvent);
-  },
-  beforeDestroy() {
-    window.removeEventListener("keydown", this.keyEvent);
-    this.editor.destroy();
-  },
-  mounted: function () {
-    const fileContent = this.req.content || "";
-
-    ace.config.set(
-      "basePath",
-      `https://cdn.jsdelivr.net/npm/ace-builds@${ace_version}/src-min-noconflict/`
-    );
-
-    this.editor = ace.edit("editor", {
-      value: fileContent,
-      showPrintMargin: false,
-      readOnly: this.req.type === "textImmutable",
-      theme: "ace/theme/chrome",
-      mode: modelist.getModeForPath(this.req.name).mode,
-      wrap: true,
-    });
-
-    if (theme == "dark") {
-      this.editor.setTheme("ace/theme/twilight");
-    }
-
-    this.editor.focus();
-  },
-  methods: {
-    keyEvent(event) {
-      if (event.code === "Escape") {
-        this.close();
-      }
-
-      if (!event.ctrlKey && !event.metaKey) {
-        return;
-      }
-
-      if (String.fromCharCode(event.which).toLowerCase() !== "s") {
-        return;
-      }
-
-      event.preventDefault();
-      this.save();
-    },
-    async save() {
-      const button = "save";
-      buttons.loading("save");
-
+  watchEffect(async () => {
+    if (isMarkdownFile && isPreview.value) {
+      const new_value = editor.value?.getValue() || "";
       try {
-        await api.put(this.$route.path, this.editor.getValue());
-        this.editor.session.getUndoManager().markClean();
-        buttons.success(button);
-      } catch (e) {
-        buttons.done(button);
-        this.$showError(e);
+        previewContent.value = DOMPurify.sanitize(await marked(new_value));
+      } catch (error) {
+        console.error("Failed to convert content to HTML:", error);
+        previewContent.value = "";
       }
-    },
-    close() {
-      if (!this.editor.session.getUndoManager().isClean()) {
-        this.$store.commit("showHover", "discardEditorChanges");
-        return;
-      }
+    }
+  });
 
-      this.$store.commit("updateRequest", {});
+  ace.config.set(
+    "basePath",
+    `https://cdn.jsdelivr.net/npm/ace-builds@${ace_version}/src-min-noconflict/`
+  );
 
-      let uri = url.removeLastDir(this.$route.path) + "/";
-      this.$router.push({ path: uri });
+  editor.value = ace.edit("editor", {
+    value: fileContent,
+    showPrintMargin: false,
+    readOnly: fileStore.req?.type === "textImmutable",
+    theme: getEditorTheme(authStore.user?.aceEditorTheme ?? ""),
+    mode: modelist.getModeForPath(fileStore.req!.name).mode,
+    wrap: true,
+    enableBasicAutocompletion: true,
+    enableLiveAutocompletion: true,
+    enableSnippets: true,
+  });
+
+  editor.value.setFontSize(fontSize.value);
+  editor.value.focus();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener("keydown", keyEvent);
+  window.removeEventListener("beforeunload", handlePageChange);
+  editor.value?.destroy();
+});
+
+onBeforeRouteUpdate((to, from, next) => {
+  if (editor.value?.session.getUndoManager().isClean()) {
+    next();
+
+    return;
+  }
+
+  layoutStore.showHover({
+    prompt: "discardEditorChanges",
+    confirm: (event: Event) => {
+      event.preventDefault();
+      next();
     },
-  },
+    saveAction: async () => {
+      await save();
+      next();
+    },
+  });
+});
+
+const keyEvent = (event: KeyboardEvent) => {
+  if (event.code === "Escape") {
+    close();
+  }
+
+  if (!event.ctrlKey && !event.metaKey) {
+    return;
+  }
+
+  if (event.key !== "s") {
+    return;
+  }
+
+  event.preventDefault();
+  save();
+};
+
+const handlePageChange = (event: BeforeUnloadEvent) => {
+  if (!editor.value?.session.getUndoManager().isClean()) {
+    event.preventDefault();
+    // returnValue is now depecrated, though keeping in for legacy browser support
+    // https://developer.mozilla.org/en-US/docs/Web/API/BeforeUnloadEvent/returnValue
+    event.returnValue = true;
+  }
+};
+
+const save = async () => {
+  const button = "save";
+  buttons.loading("save");
+
+  try {
+    await api.put(route.path, editor.value?.getValue());
+    editor.value?.session.getUndoManager().markClean();
+    buttons.success(button);
+  } catch (e: any) {
+    buttons.done(button);
+    $showError(e);
+  }
+};
+
+const increaseFontSize = () => {
+  fontSize.value += 1;
+  editor.value?.setFontSize(fontSize.value);
+  localStorage.setItem("editorFontSize", fontSize.value.toString());
+};
+
+const decreaseFontSize = () => {
+  if (fontSize.value > 1) {
+    fontSize.value -= 1;
+    editor.value?.setFontSize(fontSize.value);
+    localStorage.setItem("editorFontSize", fontSize.value.toString());
+  }
+};
+
+const close = () => {
+  if (!editor.value?.session.getUndoManager().isClean()) {
+    layoutStore.showHover({
+      prompt: "discardEditorChanges",
+      confirm: (event: Event) => {
+        event.preventDefault();
+        finishClose();
+      },
+      saveAction: async () => {
+        await save();
+        finishClose();
+      },
+    });
+    return;
+  }
+  finishClose();
+};
+
+const finishClose = () => {
+  fileStore.updateRequest(null);
+  const uri = url.removeLastDir(route.path) + "/";
+  router.push({ path: uri });
+};
+
+const preview = () => {
+  isPreview.value = !isPreview.value;
 };
 </script>
+
+<style scoped>
+.editor-font-size {
+  margin: 0 0.5em;
+  color: var(--fg);
+}
+</style>

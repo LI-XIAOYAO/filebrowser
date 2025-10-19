@@ -2,6 +2,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/golang-jwt/jwt/v4/request"
 
-	"github.com/filebrowser/filebrowser/v2/errors"
+	fbErrors "github.com/filebrowser/filebrowser/v2/errors"
 	"github.com/filebrowser/filebrowser/v2/users"
 )
 
@@ -20,15 +21,17 @@ const (
 )
 
 type userInfo struct {
-	ID           uint              `json:"id"`
-	Locale       string            `json:"locale"`
-	ViewMode     users.ViewMode    `json:"viewMode"`
-	SingleClick  bool              `json:"singleClick"`
-	Perm         users.Permissions `json:"perm"`
-	Commands     []string          `json:"commands"`
-	LockPassword bool              `json:"lockPassword"`
-	HideDotfiles bool              `json:"hideDotfiles"`
-	DateFormat   bool              `json:"dateFormat"`
+	ID             uint              `json:"id"`
+	Locale         string            `json:"locale"`
+	ViewMode       users.ViewMode    `json:"viewMode"`
+	SingleClick    bool              `json:"singleClick"`
+	Perm           users.Permissions `json:"perm"`
+	Commands       []string          `json:"commands"`
+	LockPassword   bool              `json:"lockPassword"`
+	HideDotfiles   bool              `json:"hideDotfiles"`
+	DateFormat     bool              `json:"dateFormat"`
+	Username       string            `json:"username"`
+	AceEditorTheme string            `json:"aceEditorTheme"`
 }
 
 type authToken struct {
@@ -65,7 +68,7 @@ func (e extractor) ExtractToken(r *http.Request) (string, error) {
 
 func withUser(fn handleFunc) handleFunc {
 	return func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
-		keyFunc := func(token *jwt.Token) (interface{}, error) {
+		keyFunc := func(_ *jwt.Token) (interface{}, error) {
 			return d.settings.Key, nil
 		}
 
@@ -109,13 +112,14 @@ func loginHandler(tokenExpireTime time.Duration) handleFunc {
 		}
 
 		user, err := auther.Auth(r, d.store.Users, d.settings, d.server)
-		if err == os.ErrPermission {
+		switch {
+		case errors.Is(err, os.ErrPermission):
 			return http.StatusForbidden, nil
-		} else if err != nil {
+		case err != nil:
 			return http.StatusInternalServerError, err
-		} else {
-			return printToken(w, r, d, user, tokenExpireTime)
 		}
+
+		return printToken(w, r, d, user, tokenExpireTime)
 	}
 }
 
@@ -124,7 +128,7 @@ type signupBody struct {
 	Password string `json:"password"`
 }
 
-var signupHandler = func(w http.ResponseWriter, r *http.Request, d *data) (int, error) {
+var signupHandler = func(_ http.ResponseWriter, r *http.Request, d *data) (int, error) {
 	if !d.settings.Signup {
 		return http.StatusMethodNotAllowed, nil
 	}
@@ -149,12 +153,15 @@ var signupHandler = func(w http.ResponseWriter, r *http.Request, d *data) (int, 
 
 	d.settings.Defaults.Apply(user)
 
-	pwd, err := users.HashPwd(info.Password)
+	pwd, err := users.ValidateAndHashPwd(info.Password, d.settings.MinimumPasswordLength)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return http.StatusBadRequest, err
 	}
 
 	user.Password = pwd
+	if d.settings.CreateUserDir {
+		user.Scope = ""
+	}
 
 	userHome, err := d.settings.MakeUserDir(user.Username, user.Scope, d.server.Root)
 	if err != nil {
@@ -165,7 +172,7 @@ var signupHandler = func(w http.ResponseWriter, r *http.Request, d *data) (int, 
 	log.Printf("new user: %s, home dir: [%s].", user.Username, userHome)
 
 	err = d.store.Users.Save(user)
-	if err == errors.ErrExist {
+	if errors.Is(err, fbErrors.ErrExist) {
 		return http.StatusConflict, err
 	} else if err != nil {
 		return http.StatusInternalServerError, err
@@ -184,15 +191,17 @@ func renewHandler(tokenExpireTime time.Duration) handleFunc {
 func printToken(w http.ResponseWriter, _ *http.Request, d *data, user *users.User, tokenExpirationTime time.Duration) (int, error) {
 	claims := &authToken{
 		User: userInfo{
-			ID:           user.ID,
-			Locale:       user.Locale,
-			ViewMode:     user.ViewMode,
-			SingleClick:  user.SingleClick,
-			Perm:         user.Perm,
-			LockPassword: user.LockPassword,
-			Commands:     user.Commands,
-			HideDotfiles: user.HideDotfiles,
-			DateFormat:   user.DateFormat,
+			ID:             user.ID,
+			Locale:         user.Locale,
+			ViewMode:       user.ViewMode,
+			SingleClick:    user.SingleClick,
+			Perm:           user.Perm,
+			LockPassword:   user.LockPassword,
+			Commands:       user.Commands,
+			HideDotfiles:   user.HideDotfiles,
+			DateFormat:     user.DateFormat,
+			Username:       user.Username,
+			AceEditorTheme: user.AceEditorTheme,
 		},
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

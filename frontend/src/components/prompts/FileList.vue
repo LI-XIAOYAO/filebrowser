@@ -25,12 +25,23 @@
 </template>
 
 <script>
-import { mapState } from "vuex";
+import { mapState, mapActions } from "pinia";
+import { useAuthStore } from "@/stores/auth";
+import { useFileStore } from "@/stores/file";
+import { useLayoutStore } from "@/stores/layout";
+
 import url from "@/utils/url";
 import { files } from "@/api";
+import { StatusError } from "@/api/utils.js";
 
 export default {
   name: "file-list",
+  props: {
+    exclude: {
+      type: Array,
+      default: () => [],
+    },
+  },
   data: function () {
     return {
       items: [],
@@ -40,10 +51,13 @@ export default {
       },
       selected: null,
       current: window.location.pathname,
+      nextAbortController: new AbortController(),
     };
   },
+  inject: ["$showError"],
   computed: {
-    ...mapState(["req", "user"]),
+    ...mapState(useAuthStore, ["user"]),
+    ...mapState(useFileStore, ["req"]),
     nav() {
       return decodeURIComponent(this.current);
     },
@@ -51,7 +65,14 @@ export default {
   mounted() {
     this.fillOptions(this.req);
   },
+  unmounted() {
+    this.abortOngoingNext();
+  },
   methods: {
+    ...mapActions(useLayoutStore, ["showHover"]),
+    abortOngoingNext() {
+      this.nextAbortController.abort();
+    },
     fillOptions(req) {
       // Sets the current path and resets
       // the current items.
@@ -75,8 +96,9 @@ export default {
 
       // Otherwise we add every directory to the
       // move options.
-      for (let item of req.items) {
+      for (const item of req.items) {
         if (!item.isDir) continue;
+        if (this.exclude?.includes(item.url)) continue;
 
         this.items.push({
           name: item.name,
@@ -88,12 +110,21 @@ export default {
       // Retrieves the URL of the directory the user
       // just clicked in and fill the options with its
       // content.
-      let uri = event.currentTarget.dataset.url;
-
-      files.fetch(uri).then(this.fillOptions).catch(this.$showError);
+      const uri = event.currentTarget.dataset.url;
+      this.abortOngoingNext();
+      this.nextAbortController = new AbortController();
+      files
+        .fetch(uri, this.nextAbortController.signal)
+        .then(this.fillOptions)
+        .catch((e) => {
+          if (e instanceof StatusError && e.is_canceled) {
+            return;
+          }
+          this.$showError(e);
+        });
     },
     touchstart(event) {
-      let url = event.currentTarget.dataset.url;
+      const url = event.currentTarget.dataset.url;
 
       // In 300 milliseconds, we shall reset the count.
       setTimeout(() => {
@@ -134,7 +165,7 @@ export default {
       this.$emit("update:selected", this.selected);
     },
     createDir: async function () {
-      this.$store.commit("showHover", {
+      this.showHover({
         prompt: "newDir",
         action: null,
         confirm: null,

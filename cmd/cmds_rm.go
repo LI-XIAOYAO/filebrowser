@@ -23,7 +23,7 @@ You can also specify an optional parameter (index_end) so
 you can remove all commands from 'index' to 'index_end',
 including 'index_end'.`,
 	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.RangeArgs(2, 3)(cmd, args); err != nil { //nolint:gomnd
+		if err := cobra.RangeArgs(2, 3)(cmd, args); err != nil {
 			return err
 		}
 
@@ -35,22 +35,31 @@ including 'index_end'.`,
 
 		return nil
 	},
-	Run: python(func(cmd *cobra.Command, args []string, d pythonData) {
+	RunE: python(func(_ *cobra.Command, args []string, d *pythonData) error {
 		s, err := d.store.Settings.Get()
-		checkErr(err)
+		if err != nil {
+			return err
+		}
 		evt := args[0]
 
 		i, err := strconv.Atoi(args[1])
-		checkErr(err)
+		if err != nil {
+			return err
+		}
 		f := i
-		if len(args) == 3 { //nolint:gomnd
+		if len(args) == 3 {
 			f, err = strconv.Atoi(args[2])
-			checkErr(err)
+			if err != nil {
+				return err
+			}
 		}
 
 		s.Commands[evt] = append(s.Commands[evt][:i], s.Commands[evt][f+1:]...)
 		err = d.store.Settings.Save(s)
-		checkErr(err)
+		if err != nil {
+			return err
+		}
 		printEvents(s.Commands)
+		return nil
 	}, pythonConfig{}),
 }

@@ -1,7 +1,9 @@
 {
   "buttons": {
     "cancel": "إلغاء",
+    "clear": "مسح",
     "close": "إغلاق",
+    "continue": "متابعة",
     "copy": "نسخ",
     "copyFile": "نسخ الملف",
     "copyToClipboard": "نسخ الى الحافظة",
@@ -11,6 +13,7 @@
     "download": "تحميل",
     "file": "ملف",
     "folder": "مجلد",
+    "fullScreen": "تكبير/تصغير الشاشة",
     "hideDotfiles": "إخفاء ملفات النقطة",
     "info": "معلومات",
     "more": "المزيد",
@@ -21,6 +24,7 @@
     "ok": "موافق",
     "permalink": "الحصول على رابط دائم",
     "previous": "السابق",
+    "preview": "Preview",
     "publish": "نشر",
     "rename": "إعادة تسمية",
     "replace": "استبدال",
@@ -38,7 +42,8 @@
     "update": "تحديث",
     "upload": "رفع",
     "openFile": "فتح الملف",
-    "continue": "متابعة"
+    "discardChanges": "إلغاء التغييرات",
+    "saveChanges": "Save changes"
   },
   "download": {
     "downloadFile": "تحميل الملف",
@@ -56,7 +61,6 @@
   },
   "files": {
     "body": "الصفحة",
-    "clear": "مسح",
     "closePreview": "إغلاق العرض",
     "files": "الملفات",
     "folders": "المجلدات",
@@ -87,32 +91,6 @@
     "f2": "إعادة تسمية الملف",
     "help": "مساعدة"
   },
-  "languages": {
-    "he": "עברית",
-    "hu": "Magyar",
-    "ar": "العربية",
-    "de": "Deutsch",
-    "el": "Ελληνικά",
-    "en": "English",
-    "es": "Español",
-    "fr": "Français",
-    "is": "Icelandic",
-    "it": "Italiano",
-    "ja": "日本語",
-    "ko": "한국어",
-    "nlBE": "Dutch (Belgium)",
-    "pl": "Polski",
-    "pt": "Português",
-    "ptBR": "Português (Brasil)",
-    "ro": "Romanian",
-    "ru": "Русский",
-    "sk": "Slovenčina",
-    "svSE": "Swedish (Sweden)",
-    "tr": "Türkçe",
-    "ua": "Українська",
-    "zhCN": "中文 (简体)",
-    "zhTW": "中文 (繁體)"
-  },
   "login": {
     "createAnAccount": "إنشاء حساب جديد",
     "loginInstead": "هل لديك حساب",
@@ -123,7 +101,10 @@
     "submit": "تسجيل دخول",
     "username": "إسم المستخدم",
     "usernameTaken": "إسم المستخدم غير متاح",
-    "wrongCredentials": "بيانات دخول خاطئة"
+    "wrongCredentials": "بيانات دخول خاطئة",
+    "logout_reasons": {
+      "inactivity": "You have been logged out due to inactivity."
+    }
   },
   "permanent": "دائم",
   "prompts": {
@@ -133,6 +114,7 @@
     "deleteMessageMultiple": "هل تريد بالتأكيد حذف {count} ملف؟",
     "deleteMessageSingle": "هل تريد بالتأكيد حذف هذا الملف/المجلد؟",
     "deleteMessageShare": "هل تريد بالتأكيد إلغاء مشاركة هذا الملف/المجلد ({path})؟",
+    "deleteUser": "هل تريد بالتأكيد حذف هذا المستخدم؟",
     "deleteTitle": "حذف الملفات",
     "displayName": "عرض اﻹسم:",
     "download": "تحميل الملفات",
@@ -161,7 +143,9 @@
     "upload": "رفع",
     "uploadFiles": "يتم رفع {files} ملفات.",
     "uploadMessage": "إختر الملفات التي تريد رفعها.",
-    "optionalPassword": "كلمة مرور إختيارية"
+    "optionalPassword": "كلمة مرور إختيارية",
+    "resolution": "الدقة",
+    "discardEditorChanges": "هل تريد بالتأكيد إلغاء التغييرات؟"
   },
   "search": {
     "images": "الصور",
@@ -174,6 +158,7 @@
     "video": "فيديوهات"
   },
   "settings": {
+    "aceEditorTheme": "Ace editor theme",
     "admin": "إدارة",
     "administrator": "مدير",
     "allowCommands": "تنفيذ اﻷوامر",
@@ -190,6 +175,7 @@
     "commandRunnerHelp": "هنا بإمكانك تعيين اﻷوامر التي سيتم تنفيذها في اﻷحداث المسماة. يجب كتابة أمر واحد في كل سطر. ستكون المتغيرات البيئية (env) {0} و {1} متاحة، حيث {0} نسبي لـ {1}. لمزيد من المعلومات حول هذه الميزة و المتغيرات البيئية المتاحة، يرجى قراءة {2}.",
     "commandsUpdated": "تم تحديث اﻷوامر",
     "createUserDir": "إنشاء مجلد المستخدم (home) تلقائياً عند إنشاء مستخدم جديد",
+    "minimumPasswordLength": "Minimum password length",
     "tusUploads": "التحميلات المتقطعة",
     "tusUploadsHelp": "يدعم متصفح الملفات تحميل الملفات المتقطعة، مما يسمح بتحميلات الملفات بشكل فعال و موثوق و قابلة للمتابغة و متقطعة حتى على الشبكات غير الموثوقة.",
     "tusUploadsChunkSize": "يشير إلى الحد اﻷقصى لحجم الطلب (سيتم استخدام التحميل المباشر للتحميلات صغيرة الخحم). يمكنك إدخال عدد صحيح عادي يدل على الحجم بوحدة البايت أو نمظ مثل10MB, 1GB, إلخ.",
@@ -243,6 +229,7 @@
     "shareDeleted": "تم حذف المشاركة!",
     "singleClick": "استخدم النقرة الواحدة لفتح الملفات",
     "themes": {
+      "default": "افتراضي (نظام التشغيل)",
       "dark": "غامق",
       "light": "فاتح",
       "title": "موضوع"
@@ -282,4 +269,3 @@
     "unit": "وحدة الوقت"
   }
 }
-

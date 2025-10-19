@@ -1,15 +1,19 @@
 {
   "buttons": {
     "cancel": "Cancelar",
+    "clear": "Limpiar",
     "close": "Cerrar",
+    "continue": "Continuar",
     "copy": "Copiar",
     "copyFile": "Copiar archivo",
     "copyToClipboard": "Copiar al portapapeles",
+    "copyDownloadLinkToClipboard": "Copiar enlace de descarga al portapapeles",
     "create": "Crear",
     "delete": "Borrar",
     "download": "Descargar",
     "file": "Archivo",
     "folder": "Carpeta",
+    "fullScreen": "Toggle full screen",
     "hideDotfiles": "Ocultar archivos empezados por punto",
     "info": "Info",
     "more": "Más",
@@ -20,6 +24,7 @@
     "ok": "OK",
     "permalink": "Link permanente",
     "previous": "Anterior",
+    "preview": "Preview",
     "publish": "Publicar",
     "rename": "Renombrar",
     "replace": "Reemplazar",
@@ -36,12 +41,17 @@
     "toggleSidebar": "Mostrar/Ocultar menú",
     "update": "Actualizar",
     "upload": "Subir",
-    "openFile": "Abrir archivo"
+    "openFile": "Abrir archivo",
+    "discardChanges": "Discard",
+    "saveChanges": "Guardar cambios"
   },
   "download": {
     "downloadFile": "Descargar fichero",
     "downloadFolder": "Descargar directorio",
     "downloadSelected": "Descargar seleccionados"
+  },
+  "upload": {
+    "abortUpload": "Are you sure you wish to abort?"
   },
   "errors": {
     "forbidden": "No tienes los permisos necesarios para acceder.",
@@ -51,7 +61,6 @@
   },
   "files": {
     "body": "Cuerpo",
-    "clear": "Limpiar",
     "closePreview": "Cerrar vista previa",
     "files": "Archivos",
     "folders": "Carpetas",
@@ -82,31 +91,6 @@
     "f2": "renombrar archivo",
     "help": "Ayuda"
   },
-  "languages": {
-    "he": "עברית",
-    "hu": "Magyar",
-    "ar": "العربية",
-    "de": "Deutsch",
-    "en": "English",
-    "es": "Español",
-    "fr": "Français",
-    "is": "Icelandic",
-    "it": "Italiano",
-    "ja": "日本語",
-    "ko": "한국어",
-    "nlBE": "Niederländisch (Belgien)",
-    "pl": "Polski",
-    "pt": "Português",
-    "ptBR": "Português (Brasil)",
-    "ro": "Românesc",
-    "ru": "Русский",
-    "sk": "Slovenčina",
-    "svSE": "Swedish (Sweden)",
-    "tr" : "Türkçe",
-    "ua": "Українська",
-    "zhCN": "中文 (简体)",
-    "zhTW": "中文 (繁體)"
-  },
   "login": {
     "createAnAccount": "Crear una cuenta",
     "loginInstead": "Usuario ya existente",
@@ -117,7 +101,10 @@
     "submit": "Iniciar sesión",
     "username": "Usuario",
     "usernameTaken": "Nombre usuario no disponible",
-    "wrongCredentials": "Usuario y/o contraseña incorrectos"
+    "wrongCredentials": "Usuario y/o contraseña incorrectos",
+    "logout_reasons": {
+      "inactivity": "You have been logged out due to inactivity."
+    }
   },
   "permanent": "Permanente",
   "prompts": {
@@ -127,6 +114,7 @@
     "deleteMessageMultiple": "¿Estás seguro que quieres eliminar {count} archivo(s)?",
     "deleteMessageSingle": "¿Estás seguro que quieres eliminar este archivo/carpeta?",
     "deleteMessageShare": "¿Está seguro de que quiere eliminar este recurso compartido({path})?",
+    "deleteUser": "Are you sure you want to delete this user?",
     "deleteTitle": "Borrar archivos",
     "displayName": "Nombre:",
     "download": "Descargar archivos",
@@ -155,7 +143,9 @@
     "upload": "Subir",
     "uploadFiles": "Subiendo {files} archivos...",
     "uploadMessage": "Seleccione una opción para subir.",
-    "optionalPassword": "Contraseña opcional"
+    "optionalPassword": "Contraseña opcional",
+    "resolution": "Resolution",
+    "discardEditorChanges": "Are you sure you wish to discard the changes you've made?"
   },
   "search": {
     "images": "Imágenes",
@@ -168,6 +158,7 @@
     "video": "Vídeo"
   },
   "settings": {
+    "aceEditorTheme": "Ace editor theme",
     "admin": "Admin",
     "administrator": "Administrador",
     "allowCommands": "Ejecutar comandos",
@@ -184,6 +175,11 @@
     "commandRunnerHelp": "Aquí puede establecer los comandos que se ejecutan en los eventos nombrados. Debe escribir uno por línea. Las variables de entorno {0} y {1} estarán disponibles, siendo {0} relativa a {1}. Para más información sobre esta característica y las variables de entorno disponibles, por favor lea el {2}.",
     "commandsUpdated": "¡Comandos actualizados!",
     "createUserDir": "Crea automaticamente una carpeta de inicio cuando se agrega un usuario",
+    "minimumPasswordLength": "Minimum password length",
+    "tusUploads": "Chunked Uploads",
+    "tusUploadsHelp": "File Browser supports chunked file uploads, allowing for the creation of efficient, reliable, resumable and chunked file uploads even on unreliable networks.",
+    "tusUploadsChunkSize": "Indicates to maximum size of a request (direct uploads will be used for smaller uploads). You may input a plain integer denoting byte size input or a string like 10MB, 1GB etc.",
+    "tusUploadsRetryCount": "Number of retries to perform if a chunk fails to upload.",
     "userHomeBasePath": "Ruta base para los directorios personales de los usuarios",
     "userScopeGenerationPlaceholder": "El ámbito se generará automáticamente",
     "createUserHomeDirectory": "Crear el directorio principal del usuario",
@@ -197,7 +193,7 @@
     "executeOnShellDescription": "Por defecto, FileBrowser ejecuta los comandos llamando directamente a sus binarios. Si quieres ejecutarlos en un shell en su lugar (como Bash o PowerShell), puedes definirlo aquí con los argumentos y banderas (flags) necesarios. Si se define, el comando que se ejecuta se añadirá como argumento. Esto se aplica tanto a los comandos de usuario como a los ganchos de eventos.",
     "globalRules": "Se trata de un conjunto global de reglas de permiso y rechazo. Se aplican a todos los usuarios. Puedes definir reglas específicas en la configuración de cada usuario para anular estas.",
     "globalSettings": "Ajustes globales",
-    "hideDotfiles": "",
+    "hideDotfiles": "Ocultar archivos empezados por punto",
     "insertPath": "Introduce la ruta",
     "insertRegex": "Introducir expresión regular",
     "instanceName": "Nombre de la instancia",
@@ -233,6 +229,7 @@
     "shareDeleted": "¡Recurso compartido eliminado!",
     "singleClick": "Utilice un solo clic para abrir archivos y directorios",
     "themes": {
+      "default": "System default",
       "dark": "Oscuro",
       "light": "Claro",
       "title": "Tema"
